@@ -1,9 +1,8 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
 import { Brain, Send, X, Sparkles, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { MarkdownRenderer } from "@/components/brain/markdown-renderer";
 
@@ -27,12 +26,17 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose: () => voi
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
+  // Auto-scroll to bottom whenever messages change OR content within the last message changes
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    // Use requestAnimationFrame so scroll happens after DOM paint
+    requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight;
+    });
   }, [messages]);
 
   const send = async (textOverride?: string) => {
@@ -105,7 +109,7 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose: () => voi
     >
       {open && (
         <>
-          <div className="h-16 border-b border-border px-4 flex items-center justify-between">
+          <div className="h-16 border-b border-border px-4 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
               <div className="size-7 rounded-md bg-gradient-to-br from-emerald-400 to-cyan-500 grid place-items-center text-zinc-900">
                 <Brain className="size-4" />
@@ -118,12 +122,12 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose: () => voi
             <Button size="icon" variant="ghost" onClick={onClose}><X className="size-4" /></Button>
           </div>
 
-          <ScrollArea className="flex-1">
-            <div ref={scrollRef} className="p-4 space-y-4">
+          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
+            <div className="p-4 space-y-4">
               {messages.map((m) => (
                 <div key={m.id} className={cn("flex flex-col gap-1", m.role === "user" ? "items-end" : "items-start")}>
                   <div className={cn(
-                    "max-w-[85%] rounded-lg px-3 py-2 text-sm",
+                    "max-w-[85%] rounded-lg px-3 py-2 text-sm break-words",
                     m.role === "user"
                       ? "bg-emerald-500/15 border border-emerald-500/20 text-emerald-50"
                       : "bg-muted/40 border border-border text-foreground",
@@ -137,10 +141,11 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose: () => voi
                   <Loader2 className="size-3 animate-spin" /> streaming…
                 </div>
               )}
+              <div ref={bottomRef} />
             </div>
-          </ScrollArea>
+          </div>
 
-          <div className="border-t border-border p-3 space-y-2">
+          <div className="border-t border-border p-3 space-y-2 shrink-0">
             <div className="flex gap-1.5 flex-wrap">
               {QUICK.map(q => (
                 <button
