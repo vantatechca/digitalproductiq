@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, Brain, Search, Command, Zap } from "lucide-react";
+import { Bell, Brain, Search, Command, Zap, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -28,6 +28,11 @@ export function Topbar({ onCommandOpen, onChatToggle, chatOpen }: TopbarProps) {
     fetch("/api/activity").then(r => r.json()).then(j => setActivity(j.data ?? [])).catch(() => {});
     fetch("/api/settings").then(r => r.json()).then(j => setBudget(j.data?.ai_models ?? null)).catch(() => {});
   }, []);
+
+  async function handleLogout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    window.location.href = "/login";
+  }
 
   const cap = budget?.daily_budget_usd ?? 5;
   const pct = Math.min(100, (spent / cap) * 100);
@@ -103,6 +108,20 @@ export function Topbar({ onCommandOpen, onChatToggle, chatOpen }: TopbarProps) {
         <Brain className="size-4" />
         Brain
       </Button>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger className="inline-flex items-center justify-center size-8 rounded-lg bg-muted hover:bg-accent border border-border transition-colors">
+          <User className="size-4" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuLabel>Account</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={handleLogout} className="text-red-400 focus:text-red-400 cursor-pointer">
+            <LogOut className="size-4 mr-2" />
+            Sign out
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </header>
   );
 }
