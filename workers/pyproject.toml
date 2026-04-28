@@ -1,0 +1,36 @@
+[project]
+name = "digitalproductiq-workers"
+version = "0.1.0"
+description = "Always-on digital product opportunity intelligence — scrapers, pipeline, AI brain"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "celery[redis]>=5.4",
+    "redis>=5.2",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.7",
+    "httpx>=0.28",
+    "tenacity>=9.0",
+    "playwright>=1.49",
+    "beautifulsoup4>=4.12",
+    "lxml>=5.3",
+    "praw>=7.8",
+    "google-api-python-client>=2.155",
+    "pytrends>=4.9",
+    "supabase>=2.10",
+    "anthropic>=0.40",
+    "openai>=1.58",
+    "sentence-transformers>=3.3",
+    "pgvector>=0.3",
+    "python-dotenv>=1.0",
+    "structlog>=24.4",
+    "fake-useragent>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.25",
+    "ruff>=0.8",
+]
