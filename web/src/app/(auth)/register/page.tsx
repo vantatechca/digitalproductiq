@@ -1,11 +1,56 @@
+﻿"use client";
+
+import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Boxes } from "lucide-react";
+import { createBrowserClient } from "@supabase/ssr";
 
 export default function RegisterPage() {
+  const router = useRouter();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setInfo(null);
+    setLoading(true);
+
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { full_name: name } },
+    });
+
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+      return;
+    }
+
+    if (data.session) {
+      router.push("/");
+      router.refresh();
+    } else {
+      setInfo("Check your email to confirm your account.");
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="min-h-screen grid place-items-center p-4 bg-background">
       <Card className="w-full max-w-sm">
@@ -19,13 +64,25 @@ export default function RegisterPage() {
               <div className="text-[10px] uppercase text-muted-foreground">Create account</div>
             </div>
           </div>
-          <form className="space-y-3" action="/">
-            <div><Label htmlFor="name">Name</Label><Input id="name" type="text" required /></div>
-            <div><Label htmlFor="email">Email</Label><Input id="email" type="email" placeholder="you@founder.com" required /></div>
-            <div><Label htmlFor="password">Password</Label><Input id="password" type="password" required /></div>
-            <Button className="w-full bg-emerald-500 text-zinc-950 hover:bg-emerald-600" type="submit">Create account</Button>
+          <form className="space-y-3" onSubmit={handleSubmit}>
+            <div>
+              <Label htmlFor="name">Name</Label>
+              <Input id="name" type="text" required value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" type="email" placeholder="you@founder.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor="password">Password</Label>
+              <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+            </div>
+            {error && <p className="text-xs text-red-400">{error}</p>}
+            {info && <p className="text-xs text-emerald-400">{info}</p>}
+            <Button className="w-full bg-emerald-500 text-zinc-950 hover:bg-emerald-600" type="submit" disabled={loading}>
+              {loading ? "Creating..." : "Create account"}
+            </Button>
           </form>
-          <p className="text-[10px] text-muted-foreground text-center">Team is limited to 4 members.</p>
           <p className="text-xs text-muted-foreground text-center">Already have one? <Link href="/login" className="text-emerald-300 hover:underline">Sign in</Link></p>
         </CardContent>
       </Card>
