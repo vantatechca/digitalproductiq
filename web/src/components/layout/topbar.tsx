@@ -109,19 +109,14 @@ export function Topbar({ onCommandOpen, onChatToggle, chatOpen }: TopbarProps) {
         Brain
       </Button>
 
-      <DropdownMenu>
-        <DropdownMenuTrigger className="inline-flex items-center justify-center size-8 rounded-lg bg-muted hover:bg-accent border border-border transition-colors">
-          <User className="size-4" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuLabel>Account</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleLogout} className="text-red-400 focus:text-red-400 cursor-pointer">
-            <LogOut className="size-4 mr-2" />
-            Sign out
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <button
+  type="button"
+  onClick={handleLogout}
+  title="Sign out"
+  className="inline-flex items-center justify-center size-8 rounded-lg bg-muted hover:bg-accent border border-border transition-colors"
+>
+  <LogOut className="size-4" />
+</button>
     </header>
   );
 }
