@@ -1,5 +1,10 @@
 "use client";
 
+// Sidebar receives badge data as props from the server layout — no more
+// client-side fetch waterfall, no more empty badges flickering on first
+// paint. Only state kept locally is the collapsed/expanded toggle (UI
+// preference) which lives in localStorage.
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -10,11 +15,16 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+
+export type SidebarBadges = {
+  ideas_total: number;
+  breakouts: number;
+  rule_suggestions: number;
+};
 
 const NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, badgeKey: null },
-  { href: "/ideas", label: "Ideas", icon: Lightbulb, badgeKey: "pending" },
+  { href: "/ideas", label: "Ideas", icon: Lightbulb, badgeKey: "ideas_total" },
   { href: "/brain", label: "Brain", icon: Brain, badgeKey: null },
   { href: "/trends", label: "Trends", icon: TrendingUp, badgeKey: "breakouts" },
   { href: "/marketplaces", label: "Marketplaces", icon: Store, badgeKey: null },
@@ -25,41 +35,18 @@ const NAV = [
   { href: "/settings", label: "Settings", icon: SettingsIcon, badgeKey: null },
 ] as const;
 
-type Badges = { pending?: number; breakouts?: number; rule_suggestions?: number };
-
-export function Sidebar() {
+export function Sidebar({ badges }: { badges: SidebarBadges }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
-  const [badges, setBadges] = useState<Badges>({});
 
   useEffect(() => {
-    const v = localStorage.getItem("dpiq.sidebar.collapsed");
+    const v = localStorage.getItem("sidebar.collapsed");
     if (v === "1") setCollapsed(true);
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("dpiq.sidebar.collapsed", collapsed ? "1" : "0");
+    localStorage.setItem("sidebar.collapsed", collapsed ? "1" : "0");
   }, [collapsed]);
-
-  useEffect(() => {
-    let cancel = false;
-    (async () => {
-      try {
-        const [s, b, r] = await Promise.all([
-          fetch("/api/ideas/stats").then(r => r.json()).catch(() => null),
-          fetch("/api/trends/breakouts").then(r => r.json()).catch(() => null),
-          fetch("/api/rules").then(r => r.json()).catch(() => null),
-        ]);
-        if (cancel) return;
-        setBadges({
-          pending: s?.data?.pending_count ?? 0,
-          breakouts: b?.data?.length ?? 0,
-          rule_suggestions: r?.data?.filter((x: { source: string; active: boolean }) => x.source === "ai_suggested" && !x.active).length ?? 0,
-        });
-      } catch { /* ignore */ }
-    })();
-    return () => { cancel = true; };
-  }, [pathname]);
 
   return (
     <aside
@@ -87,44 +74,40 @@ export function Sidebar() {
         {NAV.map((n) => {
           const Icon = n.icon;
           const active = pathname === n.href || (n.href !== "/" && pathname.startsWith(n.href));
-          const badgeVal = n.badgeKey ? badges[n.badgeKey as keyof Badges] : undefined;
-
-          const linkInner = (
-            <Link
-              href={n.href}
-              className={cn(
-                "group flex items-center gap-3 rounded-lg px-3 h-10 text-sm transition-colors",
-                active
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent/40 hover:text-sidebar-foreground",
-                collapsed && "justify-center px-0",
-              )}
-            >
-              <Icon className={cn("size-4 shrink-0", active && "text-emerald-400")} />
-              {!collapsed && (
-                <>
-                  <span className="flex-1 truncate">{n.label}</span>
-                  {badgeVal !== undefined && badgeVal > 0 && (
-                    <Badge
-                      variant="secondary"
-                      className={cn(
-                        "h-5 px-1.5 text-[10px]",
-                        n.badgeKey === "breakouts" && "bg-fuchsia-500/15 text-fuchsia-300 border border-fuchsia-500/30",
-                        n.badgeKey === "rule_suggestions" && "bg-violet-500/15 text-violet-300 border border-violet-500/30",
-                        n.badgeKey === "pending" && "bg-amber-500/15 text-amber-300 border border-amber-500/30",
-                      )}
-                    >
-                      {badgeVal}
-                    </Badge>
-                  )}
-                </>
-              )}
-            </Link>
-          );
+          const badgeVal = n.badgeKey ? badges[n.badgeKey as keyof SidebarBadges] : undefined;
 
           return (
             <div key={n.href} title={collapsed ? n.label : undefined}>
-              {linkInner}
+              <Link
+                href={n.href}
+                className={cn(
+                  "group flex items-center gap-3 rounded-lg px-3 h-10 text-sm transition-colors",
+                  active
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/40 hover:text-sidebar-foreground",
+                  collapsed && "justify-center px-0",
+                )}
+              >
+                <Icon className={cn("size-4 shrink-0", active && "text-emerald-400")} />
+                {!collapsed && (
+                  <>
+                    <span className="flex-1 truncate">{n.label}</span>
+                    {badgeVal !== undefined && badgeVal > 0 && (
+                      <Badge
+                        variant="secondary"
+                        className={cn(
+                          "h-5 px-1.5 text-[10px]",
+                          n.badgeKey === "ideas_total" && "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30",
+                          n.badgeKey === "breakouts" && "bg-fuchsia-500/15 text-fuchsia-300 border border-fuchsia-500/30",
+                          n.badgeKey === "rule_suggestions" && "bg-violet-500/15 text-violet-300 border border-violet-500/30",
+                        )}
+                      >
+                        {badgeVal}
+                      </Badge>
+                    )}
+                  </>
+                )}
+              </Link>
             </div>
           );
         })}
@@ -138,7 +121,7 @@ export function Sidebar() {
               <span className="text-xs font-medium">Brain is online</span>
             </div>
             <p className="text-[10px] text-muted-foreground leading-tight">
-              Always-on. Last scan {Math.floor(Math.random() * 9) + 1}m ago.
+              Always-on.
             </p>
           </div>
         )}

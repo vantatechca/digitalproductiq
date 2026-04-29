@@ -35,6 +35,8 @@ export async function POST(req: Request) {
     return new Response(JSON.stringify({ error: "Server missing ANTHROPIC_API_KEY" }), { status: 500 });
   }
 
+  const model = process.env.TIER3_MODEL ?? "claude-sonnet-4-6";
+
   const messageId = `m_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const threadId = body.thread_id ?? `t_${Date.now()}`;
 
@@ -51,13 +53,13 @@ export async function POST(req: Request) {
         type: "meta",
         id: messageId,
         thread_id: threadId,
-        sources: ["claude-sonnet"],
+        sources: [model],
         confidence: 0.9,
       });
 
       try {
         const anthropicStream = await client.messages.stream({
-          model: "claude-sonnet-4-5",
+          model,
           max_tokens: 1500,
           system: SYSTEM_PROMPT,
           messages: [{ role: "user", content: userMessage }],
@@ -76,7 +78,8 @@ export async function POST(req: Request) {
           }
         }
 
-        // Rough cost estimate for Claude Sonnet 4.5: $3/MTok input, $15/MTok output
+        // Sonnet 4.5 / 4.6 share rates: $3/MTok input, $15/MTok output.
+        // If you ever switch TIER3_MODEL to Opus or Haiku, update this table.
         const costUsd = (inputTokens / 1_000_000) * 3 + (outputTokens / 1_000_000) * 15;
 
         send("done", {

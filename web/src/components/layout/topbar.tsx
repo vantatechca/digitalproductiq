@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Bell, Brain, Search, Command, Zap, LogOut, User } from "lucide-react";
+// Topbar receives activity + budget data as props from the server layout.
+// No more client-side useEffect fetches. The bell now shows a number badge
+// when there's unread activity, capped at 99+.
+
+import { Bell, Brain, Search, Command, Zap, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -12,31 +15,32 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { formatUSD, timeAgo } from "@/lib/utils/formatters";
 import type { ActivityLog } from "@/types/database";
 
+export type TopbarData = {
+  activity: ActivityLog[];
+  daily_budget_usd: number;
+  daily_spent_usd: number;
+};
+
 interface TopbarProps {
   onCommandOpen: () => void;
   onChatToggle: () => void;
   chatOpen: boolean;
+  data: TopbarData;
 }
 
-export function Topbar({ onCommandOpen, onChatToggle, chatOpen }: TopbarProps) {
-  const [activity, setActivity] = useState<ActivityLog[]>([]);
-  const [budget, setBudget] = useState<{ daily_budget_usd: number } | null>(null);
-  // Mock daily spend — in real wiring this would come from a /api/usage endpoint
-  const spent = 1.84;
+export function Topbar({ onCommandOpen, onChatToggle, chatOpen, data }: TopbarProps) {
+  const { activity, daily_budget_usd: cap, daily_spent_usd: spent } = data;
+  const pct = Math.min(100, (spent / Math.max(cap, 0.01)) * 100);
+  const meterColor = pct < 60 ? "bg-emerald-400" : pct < 85 ? "bg-amber-400" : "bg-red-400";
 
-  useEffect(() => {
-    fetch("/api/activity").then(r => r.json()).then(j => setActivity(j.data ?? [])).catch(() => {});
-    fetch("/api/settings").then(r => r.json()).then(j => setBudget(j.data?.ai_models ?? null)).catch(() => {});
-  }, []);
+  // Cap the bell badge at 99+ so a runaway activity log doesn't blow out the icon.
+  const bellCount = activity.length;
+  const bellLabel = bellCount > 99 ? "99+" : String(bellCount);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
     window.location.href = "/login";
   }
-
-  const cap = budget?.daily_budget_usd ?? 5;
-  const pct = Math.min(100, (spent / cap) * 100);
-  const meterColor = pct < 60 ? "bg-emerald-400" : pct < 85 ? "bg-amber-400" : "bg-red-400";
 
   return (
     <header className="h-16 border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-30 flex items-center px-6 gap-3">
@@ -70,15 +74,17 @@ export function Topbar({ onCommandOpen, onChatToggle, chatOpen }: TopbarProps) {
       <DropdownMenu>
         <DropdownMenuTrigger className="relative inline-flex items-center justify-center size-8 rounded-lg hover:bg-muted transition-colors">
           <Bell className="size-4" />
-          {activity.length > 0 && (
-            <span className="absolute top-1.5 right-1.5 size-2 bg-emerald-400 rounded-full ring-2 ring-background" />
+          {bellCount > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center rounded-full bg-emerald-500 text-zinc-950 text-[10px] font-semibold leading-none ring-2 ring-background">
+              {bellLabel}
+            </span>
           )}
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-96">
-          <DropdownMenuLabel className="flex items-center justify-between">
-            <span>Recent Activity</span>
-            <Badge variant="secondary" className="text-[10px]">{activity.length}</Badge>
-          </DropdownMenuLabel>
+          <div className="flex items-center justify-between px-2 py-1.5 text-sm font-semibold">
+          <span>Recent Activity</span>
+          <Badge variant="secondary" className="text-[10px]">{bellCount}</Badge>
+        </div>
           <DropdownMenuSeparator />
           {activity.length === 0 && (
             <div className="px-3 py-6 text-center text-xs text-muted-foreground">No recent activity</div>
@@ -110,13 +116,13 @@ export function Topbar({ onCommandOpen, onChatToggle, chatOpen }: TopbarProps) {
       </Button>
 
       <button
-  type="button"
-  onClick={handleLogout}
-  title="Sign out"
-  className="inline-flex items-center justify-center size-8 rounded-lg bg-muted hover:bg-accent border border-border transition-colors"
->
-  <LogOut className="size-4" />
-</button>
+        type="button"
+        onClick={handleLogout}
+        title="Sign out"
+        className="inline-flex items-center justify-center size-8 rounded-lg bg-muted hover:bg-accent border border-border transition-colors"
+      >
+        <LogOut className="size-4" />
+      </button>
     </header>
   );
 }

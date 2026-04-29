@@ -48,7 +48,11 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
+  // The trailing `.*\..*` excludes any path containing a dot — i.e. files with
+  // extensions (logo.png, og.jpg, manifest.webmanifest, etc.). Without it, every
+  // static asset request runs the auth check and unauthed users get redirected
+  // to /login for image fetches.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/_internal).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/_internal|.*\\..*).*)",
   ],
 };

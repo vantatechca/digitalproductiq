@@ -1,32 +1,62 @@
-"use client";
+// Dashboard layout — server component that fetches sidebar badges AND topbar
+// notification data once per navigation. Hands them as props to Sidebar and
+// DashboardShell (which forwards to Topbar).
 
-import { useState } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
-import { Topbar } from "@/components/layout/topbar";
-import { ChatPanel } from "@/components/layout/chat-panel";
-import { CommandPalette } from "@/components/layout/command-palette";
-import { Onboarding } from "@/components/layout/onboarding";
-import { KeyboardShortcutsDialog } from "@/components/layout/keyboard-shortcuts";
+import { DashboardShell } from "@/components/layout/dashboard-shell";
+import { IDEAS, BREAKOUTS, RULES, ACTIVITY_LOG } from "@/lib/mock-data";
+import type { ActivityLog } from "@/types/database";
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const [chatOpen, setChatOpen] = useState(false);
-  const [paletteOpen, setPaletteOpen] = useState(false);
+export const dynamic = "force-dynamic";
+
+async function getSidebarBadges() {
+  // While we're still on mock data, derive counts from the same source
+  // /api/ideas/stats etc. read from. When you wire Supabase, replace this
+  // with a single supabase call (or RPC) that returns all three counts.
+  try {
+    return {
+      ideas_total: IDEAS.length,
+      breakouts: BREAKOUTS.length,
+      rule_suggestions: RULES.filter(r => r.source === "ai_suggested" && !r.active).length,
+    };
+  } catch {
+    return { ideas_total: 0, breakouts: 0, rule_suggestions: 0 };
+  }
+}
+
+async function getTopbarData() {
+  try {
+    // Sort newest first, take 8 — matches what the dropdown displays.
+    const recent: ActivityLog[] = [...ACTIVITY_LOG]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 8);
+    // Daily AI spend cap — pulled from settings; mocked here.
+    return {
+      activity: recent,
+      daily_budget_usd: 5,
+      daily_spent_usd: 1.84,
+    };
+  } catch {
+    return {
+      activity: [] as ActivityLog[],
+      daily_budget_usd: 5,
+      daily_spent_usd: 0,
+    };
+  }
+}
+
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const [badges, topbarData] = await Promise.all([
+    getSidebarBadges(),
+    getTopbarData(),
+  ]);
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar />
-      <div className="flex-1 flex flex-col min-w-0">
-        <Topbar
-          onCommandOpen={() => setPaletteOpen(true)}
-          onChatToggle={() => setChatOpen(o => !o)}
-          chatOpen={chatOpen}
-        />
-        <main className="flex-1 overflow-y-auto">{children}</main>
-      </div>
-      <ChatPanel open={chatOpen} onClose={() => setChatOpen(false)} />
-      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
-      <Onboarding />
-      <KeyboardShortcutsDialog />
-    </div>
+    <DashboardShell
+      sidebar={<Sidebar badges={badges} />}
+      topbarData={topbarData}
+    >
+      {children}
+    </DashboardShell>
   );
 }
